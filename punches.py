@@ -21,6 +21,7 @@ class Punches:
 
     def __init__(self):
         self.punches = []
+        self._days = set()
         pass
 
     def add_punch(self, punch_record):
@@ -32,6 +33,7 @@ class Punches:
         """
         if isinstance(punch_record, Punch):
             self.punches.append(punch_record)
+            self._days.add(punch_record.in_date)
             return
 
         punch = Punch()
@@ -43,6 +45,7 @@ class Punches:
             setattr(punch, subfield, strings_to_numbers(value))
         if punch.in_date:
             self.punches.append(punch)
+            self._days.add(punch.in_date)
 
     def add_punches(self, report):
         if isinstance(report, Punches):
@@ -59,11 +62,15 @@ class Punches:
     def __getitem__(self, item):
         return self.punches_by_employee_id(item)
 
-    def remove_punch(self, eid=None, visid=None, punchid=None):
-        pass
-
     def punches_by_department(self, department):
         return self.punches_by_field("department", department.upper())
+
+    def departments(self):
+        departments = {}
+        for punch in self.punches:
+            department = departments.setdefault(punch.department, Punches())
+            department.add_punch(punch)
+        return departments
 
     def punches_by_field(self, field, value):
         punches = Punches()
@@ -132,6 +139,12 @@ class Punches:
         for punch in self.punches:
             ids.add(punch.visible_id)
         return len(ids)
+
+    def days(self):
+        days = {}
+        for day in sorted(list(self._days)):
+            days[day] = self.punches_by_date(day)
+        return days
 
 
 class Punch:
@@ -254,14 +267,12 @@ class Punch:
 
     def labor_by_hour(self, hour):
         hour_start = date_to_datetime(self.in_date, hour=hour)
-        hour_end = date_to_datetime(self.in_date, hour=hour+1)
-        hour_value = min((self.out_time, hour_end)).timestamp() - max((self.in_time, hour_start)).timestamp()
-        if hour_value < 0:
+        hour_end = date_to_datetime(self.in_date, hour=hour + 1)
+        punch_seconds = min((self.out_time, hour_end)).timestamp() - max((self.in_time, hour_start)).timestamp()
+        if punch_seconds < 0:
             return 0
-        punch_hours = hour_value / 60 / 60
+        punch_hours = punch_seconds / 60 / 60
         return punch_hours
 
     def labor_dollars_by_hour(self, hour):
         return self.labor_by_hour(hour) * self.wage
-
-

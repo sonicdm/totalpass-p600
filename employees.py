@@ -33,4 +33,10 @@ class Employee:
 
 
 class Employees:
+
+    def __init__(self):
+        self._employees = {}
+
+    def add_employee(self,first, mi, last, visid, eid):
+        self._employees[visid] = Employee(first, mi, last, visid, eid)
     pass

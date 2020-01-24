@@ -70,18 +70,17 @@ def get_time_range(start, stop, hours=False, days=False, seconds=False):
     if isinstance(stop, date):
         stop = date_to_datetime(stop)
 
+    day_span = (stop - start).days
+
     if [hours, days, seconds].count(False) < 2:
         raise ValueError("Only One Option Must Be Selected")
-    if hours:
-        span = int((stop-start).seconds/60/60)
-        return [start + timedelta(hours=x) for x in range(span + 1)]
+    if hours or not all([hours, days, seconds]):
+        span = int((stop - start).seconds / 60 / 60) + (day_span*24)
+
+        return [start + timedelta(hours=x) for x in range(span + 2)]
     elif days:
         span = (stop - start).days
         return [start + timedelta(days=x) for x in range(span + 1)]
     elif seconds:
         span = (stop - start).seconds
         return [start + timedelta(seconds=x) for x in range(span + 1)]
-    else:
-        span = int((stop-start).seconds/60/60)
-        return [start + timedelta(hours=x) for x in range(span + 1)]
-
