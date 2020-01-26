@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from totalpass_p600.employees import Employee
-from utils import strings_to_numbers
+from totalpass_p600.util import strings_to_numbers
 
 
 class TimeClockApi(object):
@@ -41,7 +41,7 @@ class TimeClockApi(object):
     def make_request(self, endpoint, method="GET", payload=None, headers=None, cookies=None, json=None, **kwargs):
         """
         simplifies creating requests as the base timeclock address can change. just specify the endpoint
-        dont need to change it in a bunch of places
+        so you dont need to change it in a bunch of places
         :rtype requests.Response
         """
         url = "/".join([self.address, endpoint])
@@ -61,7 +61,7 @@ class TimeClockApi(object):
         :param from_date:
         :param to_date:
         :param emp_number:
-        :rtype: list
+        :rtype: list of OrderedDict
         """
 
         from_date = dateutil.parser.parse(from_date)
