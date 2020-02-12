@@ -1,5 +1,5 @@
-from totalpass_p600.api import TimeClockApi
-from totalpass_p600.punches import Punches
+from .api import TimeClockApi
+from .punches import Punches
 
 
 class TimeClockReport(TimeClockApi):

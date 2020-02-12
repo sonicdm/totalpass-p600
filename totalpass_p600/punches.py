@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 
 import dateutil.parser
 
-from totalpass_p600.util import strings_to_numbers, date_to_datetime
+from .util import strings_to_numbers, date_to_datetime
 
 PUNCH_TYPES = {
     0: "In",

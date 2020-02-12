@@ -1,4 +1,4 @@
-from totalpass_p600.punches import Punches
+from .punches import Punches
 
 
 class Employee:

@@ -1,12 +1,14 @@
 import csv
+import re
 from urllib import parse
-
 import dateutil.parser
 import requests
+import subprocess
+
 from bs4 import BeautifulSoup
 
-from totalpass_p600.employees import Employee
-from totalpass_p600.util import strings_to_numbers
+from .employees import Employee
+from .util import strings_to_numbers
 
 
 class TimeClockApi(object):
@@ -38,7 +40,7 @@ class TimeClockApi(object):
 
         res.raise_for_status()
 
-    def make_request(self, endpoint, method="GET", payload=None, headers=None, cookies=None, json=None, **kwargs):
+    def make_request(self, endpoint, method="GET", data=None, headers=None, cookies=None, json=None, **kwargs):
         """
         simplifies creating requests as the base timeclock address can change. just specify the endpoint
         so you dont need to change it in a bunch of places
@@ -51,7 +53,7 @@ class TimeClockApi(object):
             }
         if not cookies:
             cookies = self.session.cookies
-        res = self.session.request(method, url, data=payload, headers=headers, cookies=cookies, json=json, **kwargs)
+        res = self.session.request(method, url, data=data, headers=headers, cookies=cookies, json=json, **kwargs)
         res.raise_for_status()
         return res
 
@@ -119,7 +121,7 @@ class TimeClockApi(object):
             'Accept-Language': 'en-US,en;q=0.9',
         }
         # request ajaxhtml to for some reason allow queries later.
-        ajax = self.make_request(ajax_endpoint, "POST", payload=ajax_payload, headers=ajax_headers)
+        ajax = self.make_request(ajax_endpoint, "POST", data=ajax_payload, headers=ajax_headers)
         # load original report page first
         self.make_request(default_report_page)
 
@@ -174,3 +176,26 @@ class TimeClockApi(object):
             employee = Employee(e['fname'], e["mi"], e['lname'], e['visid'], e['eid'])
             employees[e["visid"]] = employee
         return employees
+
+    def fetch_backup(self):
+        """
+        download a backup file from the time clock
+
+        :return: filename, bytes
+        """
+        endpoint = "backup.html"
+        payload = 'buttonClicked=Submit&buttonClicked_2=none'
+        headers = {
+            'Referer': self.address + '/backup.html',
+            "origin": self.address,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        backup = self.make_request(endpoint, "POST", data=payload, headers=headers)
+        disposition = backup.headers["content-disposition"]
+        filename = re.search('filename="(.*?)"', disposition).group(1)
+        return filename, backup.content
+
+
+def save_file_from_bytes(b, o, zip_file=False, password=None):
+    with open(o, "rb") as f:
+        f.write(b)
