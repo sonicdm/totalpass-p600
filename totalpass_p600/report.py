@@ -1,26 +1,32 @@
-from .api import TimeClockApi
-from .punches import Punches
+from __future__ import annotations
+
+from typing import List, TYPE_CHECKING
+
+from .punches import Punches, Punch
+
+if TYPE_CHECKING:
+    from .api import TimeClockApi
 
 
-class TimeClockReport(TimeClockApi):
+class TimeClockReport:
 
-    def __init__(self, address, username, password, start, end, employee_id=None):
-        super().__init__(address, username, password)
-        self.raw_report = self.get_timecard_export(start, end, employee_id)
+    def __init__(self, raw_report: List[dict], api: TimeClockApi):
+        self.api = api
+        self.raw_report = raw_report
         self._punches = Punches()
-        self.punches.add_punches(self.raw_report)
+        self.punches.add_punches()
         self._assign_punches_to_employees()
         pass
 
-    def pull_punches(self, report):
-        for punch in report:
-            if not any(v for v in punch.values()):
+    def read_punches(self):
+        for record in self.raw_report:
+            if not any(v for v in record.values()):
                 continue
-            # visid = punch["VisibleID"]
+            punch = Punch(**record)
             self.punches.add_punch(punch)
 
     def _assign_punches_to_employees(self):
-        for num, employee in self.employee_list.items():
+        for num, employee in self.api.employee_list.items():
             try:
                 employee_punches = self.punches.punches_by_employee_id(num).punches
                 if employee_punches:

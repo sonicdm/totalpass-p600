@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import re
 from datetime import datetime, date, timedelta
+from typing import Union, List
 
 import dateutil.parser
+from pydantic import BaseModel, Field, root_validator, validator
 
 from .util import strings_to_numbers, date_to_datetime
 
@@ -15,7 +19,7 @@ PUNCH_TYPES = {
 
 class Punches:
     """
-    Catalog of employee punches
+    Collection of employee punches
     Punches[employee_id] to retrieve all punches for an employee
     """
 
@@ -47,7 +51,7 @@ class Punches:
             self.punches.append(punch)
             self._days.add(punch.in_date)
 
-    def add_punches(self, report):
+    def add_punches(self, report: Union[Punches, List[Punch]]):
         if isinstance(report, Punches):
             for punch in report.punches:
                 self.add_punch(punch)
@@ -83,7 +87,7 @@ class Punches:
         return self.punches_by_field("visible_id", visid)
 
     def punches_by_date(self, day):
-        punches = Punches()
+        # punches = Punches()
         if isinstance(day, datetime):
             day = day.date()
         elif not isinstance(day, (date, datetime)):
@@ -99,7 +103,7 @@ class Punches:
         days = (stop - start).days
         day_list = [start + timedelta(days=x) for x in range(days + 1)]
         for day in day_list:
-            range_punches.add_punches(p for p in self.punches_by_date(day).punches)
+            range_punches.add_punches([p for p in self.punches_by_date(day).punches])
         return range_punches
 
     def punches_by_hour(self, hour, day=None):
@@ -107,7 +111,7 @@ class Punches:
         given an hour return all standard punches for that hour.
         if day is specified only return that days punches
         """
-        hours = {}
+        # hours = {}
         hourly_punches = Punches()
         if day:
             punches = self.punches_by_date(day).punches
@@ -147,125 +151,147 @@ class Punches:
         return days
 
 
-class Punch:
+"""
+timecards.csv headers:
+
+FirstName,
+MiddleName,
+LastName,
+DisplayAs,
+Address,
+EmployeeID,
+VisibleID,
+SortDate,
+InPunchID,
+intInDate,
+InDate,
+InDow,
+InTime,
+InFlags,
+InPunchType,
+InNote,
+OutPunchID,
+intOutDate,
+OutDate,
+OutDow,
+OutTime,
+OutFlags,
+OutPunchType,
+OutNote,
+Department,
+Lunch,
+ADJ,STD,OT1,OT2, # clock values in minutes
+Wage,
+intCalcFlags,
+MOT1,
+MOT2,
+PinNumber,
+Input
+"""
+
+
+class Punch(BaseModel):
+    """
+    A punch record from the punch report. Loaded from timecards.csv
+    """
     OT1_FACTOR = 1.5
     OT2_FACTOR = 2
+    employee_id: str = Field(..., alias='EmployeeID')
+    last_name: str = Field(..., alias='LastName')
+    first_name: str = Field(..., alias='FirstName')
+    middle_name: str = Field(..., alias='MiddleName')
+    display_as: str = Field(..., alias='DisplayAs')
+    address: str = Field(..., alias='Address')
+    visible_id: str = Field(..., alias='VisibleID')
+    sort_date: int = Field(..., alias='SortDate')
+    in_punch_id: int = Field(..., alias='InPunchID')
+    int_in_date: int = Field(..., alias='intInDate')
+    in_date: date = Field(..., alias='InDate')  # MM/DD/YYYY
+    in_dow: str = Field(..., alias='InDow')  # Mon, Tue, Wed, Thu, Fri, Sat, Sun
+    in_time: datetime = Field(..., alias='InTime')  # HH:MM(a/p)
+    in_flags: str = Field(..., alias='InFlags')
+    in_punch_type: int = Field(..., alias='InPunchType')
+    in_note: str = Field(..., alias='InNote')
+    out_punch_id: int = Field(..., alias='OutPunchID')
+    int_out_date: int = Field(..., alias='intOutDate')
+    out_date: date = Field(..., alias='OutDate')  # MM/DD/YYYY
+    out_dow: str = Field(..., alias='OutDow')  # Mon, Tue, Wed, Thu, Fri, Sat, Sun
+    out_time: datetime = Field(..., alias='OutTime')  # HH:MM(a/p)
+    out_flags: str = Field(..., alias='OutFlags')
+    out_punch_type: int = Field(..., alias='OutPunchType')
+    out_note: str = Field(..., alias='OutNote')
+    department: str = Field(..., alias='Department')
+    lunch: str = Field(..., alias='Lunch')
+    # punch durations in minutes
+    std: float = Field(..., alias='STD')
+    adj: float = Field(..., alias='ADJ')
+    ot1: float = Field(..., alias='OT1')
+    ot2: float = Field(..., alias='OT2')
+    wage: int = Field(..., alias='Wage')
+    int_calc_flags: int = Field(..., alias='intCalcFlags')
+    mot1: int = Field(..., alias='MOT1')
+    mot2: int = Field(..., alias='MOT2')
+    pin_number: int = Field(..., alias='PinNumber')
+    inp: str = Field(..., alias='Input')
 
-    def __init__(self, **kwargs):
-        self.first_name = None
-        self.middle_name = None
-        self.last_name = None
-        self.display_as = None
-        self.address = None
-        self.employee_id = None
-        self.visible_id = None
-        self.sort_date = None
-        self.in_punch_id = None
-        self.int_in_date = None
-        self._in_date = None
-        self.in_dow = None
-        self._in_time = None
-        self.in_flags = None
-        self.in_punch_type = None
-        self.in_note = None
-        self.out_punch_id = None
-        self.int_out_date = None
-        self._out_date = None
-        self.out_dow = None
-        self._out_time = None
-        self.out_flags = None
-        self.out_punch_type = None
-        self.out_note = None
-        self.department = None
-        self.lunch = None
-        self.adj = None
-        self.std = None
-        self.ot1 = None
-        self.ot2 = None
-        self.wage = None
-        self.int_calc_flags = None
-        self.mot1 = None
-        self.mot2 = None
-        self.pin_number = None
-        self.input = None
+    @root_validator(pre=True)
+    def punch_times_and_dates(cls, v):
+        in_time = v.data['in_time']
+        out_time = v.data['out_time']
+        in_date = v.data['in_date']
+        out_date = v.data['out_date']
+        # convert dates to date object
+        v.data['in_date'] = datetime.strptime(in_date, '%m/%d/%Y').date()
+        v.data['out_date'] = datetime.strptime(out_date, '%m/%d/%Y').date()
+        # convert times to datetime object on their respective dates
+        v.data['in_time'] = datetime.combine(v.data['in_date'], in_time)
+        v.data['out_time'] = datetime.combine(v.data['out_date'], out_time)
+        return v
+
+    # convert punch durations to hours from minutes
+    @validator('std', 'adj', 'ot1', 'ot2')
+    def convert_to_hours(cls, v) -> float:
+        if v:
+            return v / 60
+        return 0.0
 
     def __repr__(self):
-        in_str = "{in_time}".format(in_time=self.in_time)
-        out_str = "{out_time}".format(out_time=self.out_time)
-        if self.in_punch_type in (55, 54):
-            return "<Punch {first}, {last}, Date: {in_date} {punch_type}, Total Hours: {total_hrs}>".format(
-                first=self.first_name, last=self.last_name,
-                in_date=self.in_date,
-                punch_type=PUNCH_TYPES[self.in_punch_type],
-                total_hrs=round(self.total_hours, 2)
-            )
+        # times in HH:MM(a/p) format with date in MM/DD/YYYY format
+        in_str = f'{self.in_time.strftime("%m/%d/%Y")} {self.in_time.strftime("%I:%M%p")}'
+        out_str = f'{self.out_time.strftime("%m/%d/%Y")} {self.out_time.strftime("%I:%M%p")}'
+        if self.in_punch_type in (55, 54):  # punch is vacation or sick leave
+            return f"<Punch {self.first_name}, {self.last_name}, Date: {self.in_date} " \
+                   f"{PUNCH_TYPES[self.in_punch_type]}, Total Hours: {self.total_hours:.2f}>"
 
-        return "<Punch {first}, {last}, In: {in_str}, Out: {out_str} Total Hours: {total_hrs}>".format(
-            first=self.first_name, last=self.last_name,
-            in_str=in_str, out_str=out_str,
-            total_hrs=round(self.total_hours, 2)
-        )
-
-    def print_repr(self):
-        return self.__repr__()
+        else:  # punch is regular
+            return f"<Punch {self.first_name}, {self.last_name}, In: {in_str}, Out: {out_str} " \
+                   f"Total Hours: {self.total_hours:.2f}>"
 
     @property
-    def out_date(self):
-        return dateutil.parser.parse(self._out_date).date()
+    def labor(self) -> float:
+        """
+        Calculate the labor wages for this punch record.
+        :return:
+        """
+        ot1 = (self.ot1 * self.wage) * self.OT1_FACTOR
+        ot2 = (self.ot2 * self.wage) * self.OT2_FACTOR
+        std = self.std * self.wage
+        return sum([ot1, ot2, std])
 
     @property
-    def in_date(self):
-        return dateutil.parser.parse(self._in_date).date()
+    def total_hours(self) -> float:
+        """
+        Calculate the total hours for this punch record.
+        :return:
+        """
+        return self.ot1 + self.ot2 + self.std
 
-    @out_date.setter
-    def out_date(self, day):
-        if not day:
-            self._out_date = self._in_date
-        else:
-            self._out_date = day
-
-    @in_date.setter
-    def in_date(self, day):
-        self._in_date = day
-
-    @property
-    def in_time(self):
-        return self._in_time
-
-    @property
-    def out_time(self):
-        return self._out_time
-
-    @in_time.setter
-    def in_time(self, time):
-        if not time:
-            time = self._in_date
-        else:
-            time = dateutil.parser.parse(time)
-        self._in_time = datetime(*self.in_date.timetuple()[:6]) + timedelta(hours=time.hour, minutes=time.minute,
-                                                                            seconds=time.second)
-
-    @out_time.setter
-    def out_time(self, time):
-        if not time:
-            self._out_time = self._in_time
-        else:
-            time = dateutil.parser.parse(time)
-            self._out_time = datetime(*self.out_date.timetuple()[:6]) + timedelta(hours=time.hour, minutes=time.minute,
-                                                                                  seconds=time.second)
-
-    @property
-    def labor(self):
-        ot1 = ((self.ot1 / 60) * self.wage) * self.OT1_FACTOR
-        ot2 = ((self.ot2 / 60) * self.wage) * self.OT2_FACTOR
-        std = (self.std / 60) * self.wage
-        return ot1 + ot2 + std
-
-    @property
-    def total_hours(self):
-        return (self.ot1 + self.ot2 + self.std) / 60
-
-    def labor_by_hour(self, hour):
+    def labor_by_hour(self, hour: int):
+        """
+        Calculate the labor hours for this punch record for a given hour.
+        :param hour: hour in range 0-23 (0 is midnight)
+        :return:
+        """
         hour_start = date_to_datetime(self.in_date, hour=hour)
         hour_end = date_to_datetime(self.in_date, hour=hour + 1)
         punch_seconds = min((self.out_time, hour_end)).timestamp() - max((self.in_time, hour_start)).timestamp()
@@ -275,4 +301,9 @@ class Punch:
         return punch_hours
 
     def labor_dollars_by_hour(self, hour):
+        """
+        Calculate the labor dollars for this punch record for a given hour.
+        :param hour:
+        :return:
+        """
         return self.labor_by_hour(hour) * self.wage
